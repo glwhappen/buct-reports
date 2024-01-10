@@ -1,3 +1,4 @@
+import json
 import os
 import yaml # pyyaml
 
@@ -74,6 +75,21 @@ class ConfigManager:
         :param default: 如果键不存在，则返回的默认值。
         :return: 返回键对应的值，如果不存在则返回默认值。
         """
+        # 构建环境变量的名称
+        env_var = f"config_{section}_{key}"
+
+        # 检查环境变量是否存在
+        if env_var in os.environ:
+            env_value = os.environ[env_var]
+            # 尝试解析JSON格式的字符串
+            if env_value.startswith('[') or env_value.startswith('{'):
+                try:
+                    return json.loads(env_value)
+                except json.JSONDecodeError:
+                    pass  # 如果不是有效的JSON，保持原样返回
+
+            return env_value  # 直接返回环境变量的值
+
         if section in self.config and key in self.config[section]:
             return self.config[section][key]
         else:

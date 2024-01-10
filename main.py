@@ -4,17 +4,24 @@ import ddddocr    # 导入 ddddocr
 import requests
 from loguru import logger
 
+from getS_numberAndCookie import getValue
 from tools.ConfigManager import ConfigManager
 from tools.log import log_print
 print = log_print
 
 config_manager = ConfigManager()
 
-# 使用需要登录系统，然后替换S_number和cookie
-S_number = config_manager.get_param("info", "S_number", "用后面url中的S_number替换 http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/xshdbm_sqlist")
+S_number, cookie = getValue()
 
-cookie = config_manager.get_param("info", "cookie", "随便找一个请求，类似 __SINDEXCOOKIE__=be877f28c010fdc2e910c2171ff420ea")
-key_words = config_manager.get_param("paper", "name_keywords", ['榜样引航校友论坛系列第27与28场', '榜样引航校友论坛系列第29与30场'])
+if S_number is None:
+    logger.error("获取cookie失败")
+    exit(0)
+
+# 使用需要登录系统，然后替换S_number和cookie
+# S_number = config_manager.get_param("info", "S_number", "用后面url中的S_number替换 http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/xshdbm_sqlist")
+
+# cookie = config_manager.get_param("info", "cookie", "随便找一个请求，类似 __SINDEXCOOKIE__=be877f28c010fdc2e910c2171ff420ea")
+key_words = config_manager.get_param("paper", "name_keywords", '榜样引航校友论坛系列第27与28场,榜样引航校友论坛系列第29与30场')
 
 
 ids = []
@@ -134,7 +141,19 @@ def is_time_in_range(start_time_str, end_time_str, time_format="%Y-%m-%d %H:%M:%
     # 检查当前时间是否在范围内
     return start_time <= current_time <= end_time
 
+def is_time_in_range_3_min(start_time_str, time_format="%Y-%m-%d %H:%M:%S"):
+    # 将字符串转换为 datetime 对象
+    start_time = datetime.datetime.strptime(start_time_str, time_format)
 
+    # 将开始时间提前
+    # start_time -= datetime.timedelta(minutes=4)
+    # end_time
+    # end_time = datetime.datetime.strptime(end_time_str, time_format)
+    # 获取当前时间
+    current_time = datetime.datetime.now()
+    # 检查当前时间是否在范围内
+    logger.debug(f"抢的时间范围={start_time - datetime.timedelta(seconds=15)} {start_time + datetime.timedelta(seconds=15)}")
+    return start_time - datetime.timedelta(seconds=15) <= current_time <= start_time + datetime.timedelta(seconds=15)
 
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':
@@ -146,16 +165,24 @@ if __name__ == '__main__':
     times = 0
     while True:
 
-        if times % 3600 == 0:
+        if times % 600 == 0:
             valid_flag, user_info = valid()
             logger.info(f"{valid_flag} {user_info['xm']}")
             if valid_flag == False:
                 logger.error("用户cookie失效")
                 send_bark("用户cookie失效")
-                exit(0)
+                S_number, cookie = getValue()
+                valid_flag, user_info = valid()
+                if valid_flag == True:
+                    send_bark("用户cookie已经重新获取")
+                else:
+                    send_bark("用户cookie重新获取失败")
+
+                    exit(0)
             else:
                 send_bark(f"抢学术报告系统稳定运行 {user_info['xm']}")
         times += 1
+
         for paper in paper_list:
             contains_keyword = any(keyword in paper['name'] for keyword in key_words)
             logger.debug(f"是否包含关键字 {contains_keyword} {paper['name']}")
@@ -164,13 +191,12 @@ if __name__ == '__main__':
                 start_time = paper['start']
                 end_time = paper['end']
                 logger.info(f"准备报名 {paper['id']} {paper['name']} {start_time} {end_time}")
-                if is_time_in_range(start_time, end_time):
+                if is_time_in_range_3_min(start_time):
                     get_VerificationCode()
                     VeriCode = ocr_number(img_path)
                     send_post_request(paper['id'], VeriCode)
                     send_bark(f"报名 {paper['id']} {paper['name']} {start_time} {end_time}")
                 else:
                     logger.debug("报名失败 不在指定时间内，等待中...")
-                    time.sleep(120)
         time.sleep(gap_time)  # 这是睡眠时间，单位是秒，可以自己调整
 
