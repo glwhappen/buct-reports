@@ -11,17 +11,17 @@ print = log_print
 
 config_manager = ConfigManager()
 
-S_number, cookie = getValue()
+# S_number, cookie = getValue()
 
-if S_number is None:
-    logger.error("获取cookie失败")
-    exit(0)
+# if S_number is None:
+#     logger.error("获取cookie失败")
+#     exit(0)
 
 # 使用需要登录系统，然后替换S_number和cookie
-# S_number = config_manager.get_param("info", "S_number", "用后面url中的S_number替换 http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/xshdbm_sqlist")
+S_number = config_manager.get_param("info", "S_number", "用后面url中的S_number替换 http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/xshdbm_sqlist")
 
-# cookie = config_manager.get_param("info", "cookie", "随便找一个请求，类似 __SINDEXCOOKIE__=be877f28c010fdc2e910c2171ff420ea")
-key_words = config_manager.get_param("paper", "name_keywords", '榜样引航校友论坛系列第27与28场,榜样引航校友论坛系列第29与30场')
+cookie = config_manager.get_param("info", "cookie", "随便找一个请求，类似 __SINDEXCOOKIE__=be877f28c010fdc2e910c2171ff420ea")
+key_words = config_manager.get_param("paper", "name_keywords", ["榜样引航校友论坛系列第27与28场", "榜样引航校友论坛系列第29与30场"])
 
 
 ids = []
@@ -38,15 +38,14 @@ headers = {
 }
 
 def get_list():  # 获取学术报告id列表
+    headers['Cookie'] = cookie
     # 构建完整的 URL
     url = f"http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/xshdbm_sqlist"
+    logger.debug(url)
 
-    # 发送请求
-    try:
-        response = requests.get(url, headers=headers)
-    except Exception as e:
-        logger.exception("请检查检查config.ini中的S_number")
-        exit(0)
+
+    response = requests.get(url, headers=headers)
+
     id_rows = []  # 返回的id列表
 
     # 检查请求是否成功
@@ -73,15 +72,17 @@ def send_bark(msg):
     requests.get(url)
 
 def valid():
+    headers['Cookie'] = cookie
     url = f"https://gmis.buct.edu.cn/(S({S_number}))/student/default/getxscardinfo"
-    response = requests.get(url, headers=headers)
     try:
+        response = requests.get(url, headers=headers)
         response.json()
     except:
         return False, None
     return True, response.json()[0]
 
 def get_VerificationCode():  # 获取验证码
+    headers['Cookie'] = cookie
     url = f"http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/VerificationCode"
 
     response = requests.get(url, headers=headers)
@@ -97,6 +98,7 @@ def get_VerificationCode():  # 获取验证码
 
 
 def send_post_request(id, VeriCode):  # 抢报告
+    headers['Cookie'] = cookie
     url = f"http://gmis.buct.edu.cn/(S({S_number}))/student/yggl/xshdbm_bm"
 
     # 构建POST请求的数据
@@ -161,7 +163,26 @@ if __name__ == '__main__':
     logger.add("./log/学术报告/error/log-{time:YYYY-MM-DD}.log", level="ERROR")
     # valid_flag, user_info = valid()
     # logger.info(f"{valid_flag} {user_info['xm']}")
-    paper_list = get_list()  # 获取可选报告id列表
+
+    valid_flag, user_info = valid()
+    if valid_flag == False:
+        logger.error("获取valid失败")
+        S_number, cookie = getValue()
+        logger.debug(f"重新登录 {S_number} {cookie}")
+        config_manager.update_param("info", "S_number", S_number)
+        config_manager.update_param("info", "cookie", cookie)
+        # paper_list = get_list()  # 获取可选报告id列表
+    paper_list = []
+    try:
+        paper_list = get_list()  # 获取可选报告id列表
+    except:
+        logger.error("获取paper_list失败")
+        S_number, cookie = getValue()
+        logger.debug(f"重新登录 {S_number} {cookie}")
+        config_manager.update_param("info", "S_number", S_number)
+        config_manager.update_param("info", "cookie", cookie)
+        paper_list = get_list()  # 获取可选报告id列表
+
     times = 0
     while True:
 
@@ -169,13 +190,15 @@ if __name__ == '__main__':
             valid_flag, user_info = valid()
             logger.info(f"{valid_flag} {user_info['xm']}")
             if valid_flag == False:
-                logger.error("用户cookie失效")
-                send_bark("用户cookie失效")
                 S_number, cookie = getValue()
+                config_manager.update_param("info", "S_number", S_number)
+                config_manager.update_param("info", "cookie", cookie)
+
                 valid_flag, user_info = valid()
                 if valid_flag == True:
                     send_bark("用户cookie已经重新获取")
                 else:
+                    logger.error("用户cookie重新获取失败")
                     send_bark("用户cookie重新获取失败")
 
                     exit(0)

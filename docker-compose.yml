@@ -7,7 +7,7 @@ services:
     environment:
       config_info_user_id: '2022210524'
       config_info_user_password: 'Happena1998123#'
-      config_paper_name_keywords: '榜样引航校友论坛系列第27与28场,榜样引航校友论坛系列第29与30场'
+      config_paper_name_keywords: '["榜样引航校友论坛系列第27与28场", "榜样引航校友论坛系列第29与30场"]'
       config_system_bark_url: 'https://api.day.app/8WfiKM8ZJzpvYYRkHiXpyS'
     volumes:
       - ./docker_log:/app/log

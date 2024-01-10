@@ -1,6 +1,8 @@
 import json
 import os
 import yaml # pyyaml
+from loguru import logger
+
 
 # ConfigManager.py
 # 该模块定义了ConfigManager类，用于管理和操作YAML格式的配置文件。
@@ -84,17 +86,20 @@ class ConfigManager:
             # 尝试解析JSON格式的字符串
             if env_value.startswith('[') or env_value.startswith('{'):
                 try:
+                    logger.debug(f"get_param from env json {env_var} {env_value}")
                     return json.loads(env_value)
                 except json.JSONDecodeError:
                     pass  # 如果不是有效的JSON，保持原样返回
-
+            logger.debug(f"get_param from env {env_var} {env_value}")
             return env_value  # 直接返回环境变量的值
 
         if section in self.config and key in self.config[section]:
+            logger.debug(f"get_param from section={section} key={key} value={self.config[section][key]}")
             return self.config[section][key]
         else:
             if default is not None:
                 self.update_param(section, key, default)
+                logger.debug(f"get_param update section={section} key={key} value={default}")
                 return default
             else:
                 raise KeyError(f"Param '{key}' not found in section '{section}', and no default value provided.")
@@ -110,6 +115,7 @@ class ConfigManager:
         if section not in self.config:
             self.config[section] = {}
         self.config[section][key] = value
+        logger.debug(f"update_param section={section} key={key} value={value}")
         with open(self.config_path, 'w', encoding='utf-8') as file:
             yaml.dump(self.config, file, allow_unicode=True, default_flow_style=False)
 
